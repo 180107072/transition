@@ -12,9 +12,8 @@ const Photo: FC = () => {
 
   return (
     <SatoriAnimated>
-      <motion.div
+      <div
         key="photo-container"
-        layoutId="photo-container"
         style={{
           display: "flex",
           flexWrap: "wrap",
@@ -24,37 +23,22 @@ const Photo: FC = () => {
           width: "100%",
           height: "100%",
           gap: 32,
+          background: "blue",
         }}
       >
-        <motion.img
+        <img
           key={`photo photo-${id}`}
-          layoutId={String(id)}
           src={`/photos/${id}.jpg`}
           className="cursor-pointer"
-          initial={{
-            width: 180,
-            height: 400,
-            borderRadius: 0,
-          }}
-          exit={{
-            width: 180,
-            height: 400,
-          }}
-          animate={{
-            width: "auto",
-            height: "auto",
-            borderRadius: 10,
-          }}
-          transition={{
-            duration: 0.6,
-          }}
           style={{
             borderRadius: 10,
             objectFit: "cover",
+            width: "auto",
+            height: "auto",
             zIndex: 1,
           }}
         />
-      </motion.div>
+      </div>
     </SatoriAnimated>
   );
 };

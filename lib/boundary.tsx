@@ -1,5 +1,7 @@
-import { motion, useIsPresent, usePresence, useScroll } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
+import { useRouter } from "next/router";
 import {
+  CSSProperties,
   Children,
   FC,
   Fragment,
@@ -12,6 +14,7 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -41,15 +44,24 @@ function onlyElements(children: ReactNode): ReactElement<any>[] {
 }
 
 type SatoriBoundaryContextActions = {
-  addChildren: (key: Record<string, ReactNode>) => void;
+  addStyles: (
+    obj: Record<string, Record<string, CSSProperties | undefined>>
+  ) => void;
 };
 
-export const SatoriContext = createContext<SatoriBoundaryContextActions | null>(
-  null
-);
+type SatoriBoundaryContextState = {
+  styles: Record<string, Record<string, CSSProperties | undefined>>;
+  target: ComponentKey | undefined;
+};
+
+export const SatoriContext = createContext<
+  (SatoriBoundaryContextActions & SatoriBoundaryContextState) | null
+>(null);
 
 export const SatoriBoundary: FC<PropsWithChildren> = ({ children }) => {
-  const [animated, addChildren] = useState<Record<string, ReactNode>>({});
+  const [styles, setStyles] = useState<
+    Record<string, Record<string, CSSProperties | undefined>>
+  >({});
 
   const filteredChildren = onlyElements(children);
   let childrenToRender = filteredChildren;
@@ -57,59 +69,55 @@ export const SatoriBoundary: FC<PropsWithChildren> = ({ children }) => {
   const exitingChildren = useRef(
     new Map<ComponentKey, ReactElement<any> | undefined>()
   ).current;
+
   const presentChildren = useRef(childrenToRender);
 
   const allChildren = useRef(
     new Map<ComponentKey, ReactElement<any>>()
   ).current;
 
+  const isInitialRender = useRef(true);
+
   useEffect(() => {
+    isInitialRender.current = false;
+
     updateChildLookup(filteredChildren, allChildren);
+    presentChildren.current = childrenToRender;
     return () => {
+      isInitialRender.current = true;
+      allChildren.clear();
       exitingChildren.clear();
     };
-  }, []);
+  }, [children]);
+
+  const addStyles = (
+    style: Record<string, Record<string, CSSProperties | undefined>>
+  ) => {
+    setStyles({
+      ...styles,
+      ...style,
+    });
+  };
 
   const presentKeys = presentChildren.current.map(getChildKey);
   const targetKeys = filteredChildren.map(getChildKey);
-
   const numPresent = presentKeys.length;
 
-  for (let i = 0; i < numPresent; i++) {
-    const key = presentKeys[i];
+  const target = useMemo(() => {
+    for (let i = 0; i < numPresent; i++) {
+      const key = presentKeys[i];
 
-    if (targetKeys.indexOf(key) === -1) {
-      exitingChildren.set(key, undefined);
-    }
-  }
-
-  console.log(childrenToRender[0].type());
-  if (exitingChildren.size) {
-    childrenToRender = [];
-  }
-
-  exitingChildren.forEach((component, key) => {
-    if (targetKeys.indexOf(key) !== -1) return;
-
-    const child = allChildren.get(key);
-    if (!child) return;
-
-    const insertionIndex = presentKeys.indexOf(key);
-
-    let exitingComponent = component;
-    if (!exitingComponent) {
-      exitingComponent = <Fragment key={getChildKey(child)}>{child}</Fragment>;
-      exitingChildren.set(key, exitingComponent);
+      if (targetKeys.indexOf(key) === -1 && !exitingChildren.has(key)) {
+        return key;
+      }
     }
 
-    childrenToRender.splice(insertionIndex, 0, exitingComponent);
-  });
+    return presentKeys[0];
+  }, [children]);
 
   return (
-    <SatoriContext.Provider value={{ addChildren }}>
-      {exitingChildren.size
-        ? childrenToRender
-        : childrenToRender.map((child) => cloneElement(child))}
+    <SatoriContext.Provider value={{ addStyles, target, styles }}>
+      {childrenToRender}
     </SatoriContext.Provider>
   );
 };
