@@ -23,15 +23,12 @@ const Photo: FC = () => {
           width: "100%",
           height: "100%",
           gap: 32,
-          background: "blue",
         }}
       >
         <img
           key={`photo photo-${id}`}
           src={`/photos/${id}.jpg`}
-          className="cursor-pointer"
           style={{
-            borderRadius: 10,
             objectFit: "cover",
             width: "auto",
             height: "auto",

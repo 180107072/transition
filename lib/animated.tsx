@@ -1,32 +1,66 @@
-import { AnimatePresence, CustomDomComponent, motion } from "framer-motion";
-
+import { AnimatePresence, motion, usePresence } from "framer-motion";
 import {
   CSSProperties,
   Children,
   DetailedHTMLProps,
   FC,
-  Fragment,
   HTMLAttributes,
-  PropsWithChildren,
   ReactElement,
-  ReactNode,
   useEffect,
 } from "react";
 import { useSatori } from "./boundary";
 import { useRouter } from "next/router";
 
-export const SatoriAnimated: FC<{
-  children: ReactElement<
-    { children: ReactElement } & DetailedHTMLProps<
-      HTMLAttributes<any>,
-      HTMLElement
-    >
-  >;
-}> = ({ children }) => {
+type SatoriChildren = ReactElement<
+  { children: ReactElement } & DetailedHTMLProps<
+    HTMLAttributes<any>,
+    HTMLElement
+  >
+>;
+
+const SatoriComponent: FC<{
+  children: ReactElement;
+  layoutStyles: CSSProperties | undefined;
+}> = ({ children, layoutStyles = {} }) => {
+  const Component = motion(children.type);
+
+  return (
+    <Component
+      {...children.props}
+      layoutId={children.key}
+      initial={layoutStyles}
+      exit={layoutStyles}
+      animate={children.props.style}
+    />
+  );
+};
+
+const SatoriRenderer: FC<{
+  children: ReactElement;
+  styles: Record<string, CSSProperties | undefined>;
+}> = ({ children, styles }) => {
+  return (
+    <>
+      {Children.toArray(children).map((child) => {
+        child = child as ReactElement;
+        if (!child.key) return;
+
+        const layoutStyles = styles ? styles[child.key] : {};
+
+        return (
+          <SatoriComponent key={child.key} layoutStyles={layoutStyles}>
+            {child}
+          </SatoriComponent>
+        );
+      })}
+    </>
+  );
+};
+
+const useSatoriTargetLookup = (children: SatoriChildren) => {
   const satori = useSatori();
   const router = useRouter();
-  const styles = satori.styles[satori.target!];
-
+  const styles = satori.styles.get(satori.target);
   const parentKey = router.asPath;
 
   useEffect(() => {
@@ -39,42 +73,37 @@ export const SatoriAnimated: FC<{
       childrens[child.key] = child.props.style;
     });
 
-    satori.addStyles({
-      [parentKey]: { [children.key]: children.props.style, ...childrens },
+    satori.styles.set(parentKey, {
+      [children.key]: children.props.style,
+      ...childrens,
     });
+
+    return () => {
+      satori.styles.delete(parentKey);
+    };
   }, []);
 
-  if (!children.key || !styles) return;
+  return styles;
+};
+
+export const SatoriAnimated: FC<{
+  children: SatoriChildren;
+}> = ({ children }) => {
+  const styles = useSatoriTargetLookup(children);
+
+  const photos = (
+    <SatoriRenderer styles={styles || {}}>
+      {children.props.children}
+    </SatoriRenderer>
+  );
 
   const ContainerComponent = motion(children.type);
-
-  const photos = Children.toArray(children.props.children).map((child) => {
-    child = child as ReactElement;
-    if (!child.key) return;
-    console.log(child);
-    const Component = motion(child.type);
-
-    const photoStyles = styles[child.key];
-
-    return (
-      <Component
-        {...child.props}
-        key={child.key}
-        layoutId={child.key}
-        initial={photoStyles}
-        exit={photoStyles}
-        animate={child.props.style}
-        layout
-      />
-    );
-  });
 
   return (
     <ContainerComponent
       layoutId={children.key}
       key={children.key}
       style={children.props.style}
-      layout
     >
       {photos}
     </ContainerComponent>

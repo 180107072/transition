@@ -1,22 +1,15 @@
-import { AnimatePresence } from "framer-motion";
-import { useRouter } from "next/router";
 import {
   CSSProperties,
   Children,
   FC,
-  Fragment,
   PropsWithChildren,
   ReactElement,
   ReactNode,
-  cloneElement,
   createContext,
   isValidElement,
   useContext,
   useEffect,
-  useLayoutEffect,
-  useMemo,
   useRef,
-  useState,
 } from "react";
 
 type ComponentKey = string | number;
@@ -43,14 +36,13 @@ function onlyElements(children: ReactNode): ReactElement<any>[] {
   return filtered;
 }
 
-type SatoriBoundaryContextActions = {
-  addStyles: (
-    obj: Record<string, Record<string, CSSProperties | undefined>>
-  ) => void;
-};
-
+type SatoriBoundaryContextActions = {};
+type SatoriStyles = Map<
+  ComponentKey | undefined,
+  Record<string, CSSProperties | undefined>
+>;
 type SatoriBoundaryContextState = {
-  styles: Record<string, Record<string, CSSProperties | undefined>>;
+  styles: SatoriStyles;
   target: ComponentKey | undefined;
 };
 
@@ -59,9 +51,7 @@ export const SatoriContext = createContext<
 >(null);
 
 export const SatoriBoundary: FC<PropsWithChildren> = ({ children }) => {
-  const [styles, setStyles] = useState<
-    Record<string, Record<string, CSSProperties | undefined>>
-  >({});
+  const styles = useRef<SatoriStyles>(new Map([[undefined, {}]]));
 
   const filteredChildren = onlyElements(children);
   let childrenToRender = filteredChildren;
@@ -79,31 +69,25 @@ export const SatoriBoundary: FC<PropsWithChildren> = ({ children }) => {
   const isInitialRender = useRef(true);
 
   useEffect(() => {
-    isInitialRender.current = false;
-
     updateChildLookup(filteredChildren, allChildren);
     presentChildren.current = childrenToRender;
+  });
+
+  useEffect(() => {
+    isInitialRender.current = false;
+
     return () => {
       isInitialRender.current = true;
       allChildren.clear();
       exitingChildren.clear();
     };
-  }, [children]);
-
-  const addStyles = (
-    style: Record<string, Record<string, CSSProperties | undefined>>
-  ) => {
-    setStyles({
-      ...styles,
-      ...style,
-    });
-  };
+  }, []);
 
   const presentKeys = presentChildren.current.map(getChildKey);
   const targetKeys = filteredChildren.map(getChildKey);
   const numPresent = presentKeys.length;
 
-  const target = useMemo(() => {
+  const target = (() => {
     for (let i = 0; i < numPresent; i++) {
       const key = presentKeys[i];
 
@@ -113,10 +97,10 @@ export const SatoriBoundary: FC<PropsWithChildren> = ({ children }) => {
     }
 
     return presentKeys[0];
-  }, [children]);
+  })();
 
   return (
-    <SatoriContext.Provider value={{ addStyles, target, styles }}>
+    <SatoriContext.Provider value={{ target, styles: styles.current }}>
       {childrenToRender}
     </SatoriContext.Provider>
   );

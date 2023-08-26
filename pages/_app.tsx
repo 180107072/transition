@@ -8,8 +8,10 @@ export default function App({ Component, pageProps }: AppProps) {
   const pageKey = router.asPath;
 
   return (
-    <SatoriBoundary>
-      <Component {...pageProps} key={pageKey} />
-    </SatoriBoundary>
+    <div className="container mx-auto h-screen">
+      <SatoriBoundary>
+        <Component {...pageProps} key={pageKey} />
+      </SatoriBoundary>
+    </div>
   );
 }
